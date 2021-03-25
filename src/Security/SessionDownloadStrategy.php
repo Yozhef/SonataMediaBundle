@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Sonata\MediaBundle\Security;
 
 use Sonata\MediaBundle\Model\MediaInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Translation\TranslatorInterface;
@@ -25,6 +26,14 @@ use Symfony\Component\Translation\TranslatorInterface;
  */
 class SessionDownloadStrategy implements DownloadStrategyInterface
 {
+    /**
+     * @var ContainerInterface
+     *
+     * @deprecated since sonata-project/media-bundle 3.1, will be removed in 4.0.
+     * NEXT_MAJOR : remove this property
+     */
+    protected $container;
+
     /**
      * @var TranslatorInterface
      */
@@ -46,12 +55,34 @@ class SessionDownloadStrategy implements DownloadStrategyInterface
     private $session;
 
     /**
-     * @param int $times
+     * @param ContainerInterface|SessionInterface $sessionOrContainer
+     * @param int                                 $times
      */
-    public function __construct(TranslatorInterface $translator, SessionInterface $session, $times)
+    public function __construct(TranslatorInterface $translator, object $sessionOrContainer, $times)
     {
+        // NEXT_MAJOR: Remove these checks and declare `SessionInterface` for argument 2.
+        if ($sessionOrContainer instanceof SessionInterface) {
+            $this->session = $sessionOrContainer;
+        } elseif ($sessionOrContainer instanceof ContainerInterface) {
+            @trigger_error(sprintf(
+                'Passing other type than "%s" as argument 2 to "%s()" is deprecated since sonata-project/media-bundle 3.1'
+                .' and will throw a "\TypeError" error in 4.0.',
+                SessionInterface::class,
+                __METHOD__
+            ), \E_USER_DEPRECATED);
+
+            $this->session = $sessionOrContainer->get('session');
+        } else {
+            throw new \TypeError(sprintf(
+                'Argument 2 passed to "%s()" MUST be an instance of "%s" or "%s", "%s" given.',
+                __METHOD__,
+                SessionInterface::class,
+                ContainerInterface::class,
+                \get_class($sessionOrContainer)
+            ));
+        }
+
         $this->times = $times;
-        $this->session = $session;
         $this->translator = $translator;
     }
 
